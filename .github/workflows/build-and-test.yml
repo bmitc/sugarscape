@@ -45,30 +45,23 @@ jobs:
 
       - name: "Sugarscape: Install dependencies"
         run: mix deps.get
-        working-directory: /
 
       - name: "Sugarscape: Compile"
         run: mix compile --warnings-as-errors
-        working-directory: /
 
       - name: "Sugarscape: Run tests"
         run: mix test --warnings-as-errors
-        working-directory: /
 
       - name: "Sugarscape: Check formatting"
         run: mix format --check-formatted
-        working-directory: /
 
       - name: "Sugarscape: Run Credo checks"
         run: mix credo
-        working-directory: /
 
       # Create PLTs if no cache is found
       - name: "Sugarscape: Create PLTs"
         if: steps.plt_cache.outputs.cache-hit != 'true'
         run: mix dialyzer --plt
-        working-directory: /
 
       - name: "Sugarscape: Run Dialyzer"
         run: mix dialyzer
-        working-directory: /
