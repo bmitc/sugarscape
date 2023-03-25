@@ -14,11 +14,13 @@ defmodule Sugarscape.Sugarscape do
           grid: Nx.Tensor.t(Resource.t())
         }
 
+  @spec new(pos_integer(), pos_integer()) :: __MODULE__.t()
   def new(width, height) do
     for _ <- 1..width do
       for _ <- 1..height do
         Resource.random()
       end
     end
+    |> Nx.tensor()
   end
 end

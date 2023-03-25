@@ -33,6 +33,7 @@ defmodule Sugarscape.Resource do
     new(0, @default_maximum_level, @default_capacity, 1)
   end
 
+  @spec random() :: __MODULE__.t()
   def random() do
     maximum_level = Enum.random(0..@default_maximum_level)
     new(0, maximum_level, @default_capacity, 1)
