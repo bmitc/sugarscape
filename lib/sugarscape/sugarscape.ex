@@ -18,7 +18,7 @@ defmodule Sugarscape.Sugarscape do
   def new(width, height) do
     for _ <- 1..width do
       for _ <- 1..height do
-        Resource.random()
+        Resource.new_random()
       end
     end
     |> Nx.tensor()

@@ -15,9 +15,12 @@ defmodule Sugarscape.Resource do
   @type t :: %__MODULE__{
           level: Range.t(),
           capacity: non_neg_integer(),
-          growback_rate: non_neg_integer()
+          growback_rate: non_neg_integer() | :immediate
         }
 
+  @doc """
+  Creates a new resource with the given level range, capacity, and growback rate
+  """
   @spec new(non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()) ::
           __MODULE__.t()
   def new(minimum_level, maximum_level, initial_capacity, growback_rate) do
@@ -28,14 +31,36 @@ defmodule Sugarscape.Resource do
     }
   end
 
+  @doc """
+  Creates a new resource with a default level range of 0 to 4, a default capacity of 4,
+  and a default growback rate of 1
+  """
   @spec new() :: __MODULE__.t()
   def new() do
     new(0, @default_maximum_level, @default_capacity, 1)
   end
 
-  @spec random() :: __MODULE__.t()
-  def random() do
+  @doc """
+  Creates a new resource with a random level between 0 and 4, a default capacity of 4,
+  and a default growback rate of 1
+  """
+  @spec new_random() :: __MODULE__.t()
+  def new_random() do
     maximum_level = Enum.random(0..@default_maximum_level)
     new(0, maximum_level, @default_capacity, 1)
+  end
+
+  @doc """
+  Calculate the resource's new level after a new timestep
+  """
+  @spec calculate_new_level(__MODULE__.t()) :: __MODULE__.t()
+  def calculate_new_level(%__MODULE__{growback_rate: :immediate} = resource) do
+    # This works due to term ordering
+    # See https://hexdocs.pm/elixir/1.14.3/operators.html#term-ordering
+    min(:infinity, resource.capacity)
+  end
+
+  def calculate_new_level(%__MODULE__{} = resource) do
+    min(resource.level + resource.growback_rate, resource.capacity)
   end
 end
