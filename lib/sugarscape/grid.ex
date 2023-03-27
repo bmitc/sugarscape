@@ -8,10 +8,10 @@ defmodule Sugarscape.Grid do
 
   @opaque t(term) :: %__MODULE__{
             size: {width :: pos_integer, height :: pos_integer},
-            data: [[term]]
+            data: [element(term)]
           }
 
-  @type flattened_map(term) :: %{
+  @type element(term) :: %{
           x: pos_integer,
           y: pos_integer,
           data: term
@@ -28,30 +28,30 @@ defmodule Sugarscape.Grid do
     data =
       for y <- 1..height do
         for x <- 1..width do
-          initializer.(x, y)
+          %{x: x, y: y, data: initializer.(x, y)}
         end
       end
+      |> List.flatten()
 
     %__MODULE__{size: {width, height}, data: data}
   end
 
-  @spec flatten_to_map_list(__MODULE__.t(data), (data -> new_data)) ::
-          [%{x: pos_integer, y: pos_integer, data: new_data}]
-        when data: any, new_data: any
-  def flatten_to_map_list(grid, data_mapper \\ &Function.identity/1) do
-    grid.data
-    |> Enum.with_index(fn rows, y ->
-      Enum.with_index(
-        rows,
-        fn element, x ->
-          %{
-            x: x + 1,
-            y: y + 1,
-            data: data_mapper.(element)
-          }
-        end
+  @doc """
+  Maps over a grid's data and returns a list of a map `%{x: x-coord, y: y-coord}` merged
+  with the map that the `mapper` function returns. This is useful to convert a grid's
+  data into a new format to be used in some other context, such as plotting the grid.
+  """
+  @spec map(
+          __MODULE__.t(data),
+          (x :: pos_integer, y :: pos_integer, data -> map)
+        ) :: [%{:x => pos_integer, :y => pos_integer, optional(any) => any}]
+        when data: any
+  def map(grid, mapper) do
+    Enum.map(grid.data, fn %{x: x, y: y, data: data} = _element ->
+      Map.merge(
+        %{x: x, y: y},
+        mapper.(x, y, data)
       )
     end)
-    |> List.flatten()
   end
 end

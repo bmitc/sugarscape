@@ -26,10 +26,10 @@ defmodule Sugarscape.Environment do
     }
   end
 
-  @spec flatten(__MODULE__.t()) :: [Grid.flattened_map(pos_integer)]
+  @spec flatten(__MODULE__.t()) :: [%{x: pos_integer, y: pos_integer, level: pos_integer}]
   def flatten(environment) do
     environment.grid
-    |> Grid.flatten_to_map_list(&Map.get(&1, :level))
+    |> Grid.map(fn _x, _y, resource -> %{level: resource.level} end)
   end
 
   @spec assign_level(number, number) :: number
