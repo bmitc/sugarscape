@@ -3,15 +3,15 @@ defmodule Sugarscape.Environment do
   Provides the Environment struct
   """
 
+  alias Sugarscape.Grid
   alias Sugarscape.Resource
 
-  @enforce_keys [:grid_size, :grid]
+  @enforce_keys [:grid]
 
   defstruct @enforce_keys
 
   @type t :: %__MODULE__{
-          grid_size: {pos_integer(), pos_integer()},
-          grid: [[Resource.t()]]
+          grid: Grid.t(Resource.t())
         }
 
   @type coordinate :: {non_neg_integer(), non_neg_integer()}
@@ -21,18 +21,15 @@ defmodule Sugarscape.Environment do
 
   @spec new_gaussian(pos_integer, pos_integer) :: __MODULE__.t()
   def new_gaussian(width, height) do
-    grid =
-      for y <- 1..height do
-        for x <- 1..width do
-          assign_level(x, y)
-          |> Resource.new()
-        end
-      end
-
     %__MODULE__{
-      grid_size: {width, height},
-      grid: grid
+      grid: Grid.new(width, height, &(assign_level(&1, &2) |> Resource.new()))
     }
+  end
+
+  @spec flatten(__MODULE__.t()) :: [Grid.flattened_map(pos_integer)]
+  def flatten(environment) do
+    environment.grid
+    |> Grid.flatten_to_map_list(&Map.get(&1, :level))
   end
 
   @spec assign_level(number, number) :: number
