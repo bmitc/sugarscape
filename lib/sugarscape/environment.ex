@@ -6,6 +6,8 @@ defmodule Sugarscape.Environment do
   alias Sugarscape.Grid
   alias Sugarscape.Resource
 
+  alias VegaLite
+
   @enforce_keys [:grid]
 
   defstruct @enforce_keys
@@ -30,6 +32,25 @@ defmodule Sugarscape.Environment do
   def flatten(environment) do
     environment.grid
     |> Grid.map(fn _x, _y, resource -> %{level: resource.level} end)
+  end
+
+  @doc """
+  Return a `VegaLite` graphics specification that can be displayed in a
+  Livebook notebook. This will display an environment's layout of resources
+  on the environment's grid.
+  """
+  @spec view_resources(__MODULE__.t(), String.t()) :: VegaLite.t()
+  def view_resources(environment, title) do
+    VegaLite.new(title: title, width: 500, height: 500)
+    |> VegaLite.data_from_values(flatten(environment))
+    |> VegaLite.mark(:rect, opacity: 0.7, tooltip: true)
+    |> VegaLite.encode_field(:x, "x", title: "X location")
+    |> VegaLite.encode_field(:y, "y", title: "Y location")
+    |> VegaLite.encode_field(:color, "level",
+      title: "Sugar level",
+      type: :ordinal,
+      legend: [title: "Sugar level"]
+    )
   end
 
   @spec assign_level(number, number) :: number
