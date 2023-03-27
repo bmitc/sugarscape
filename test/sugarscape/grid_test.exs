@@ -6,7 +6,7 @@ defmodule Sugarscape.GridTest do
 
   test "mapping over a grid" do
     mapped_grid =
-      Grid.new(2, 3, &(&1 + &2))
+      Grid.new(2, 3, fn {x, y} -> x + y end)
       |> Grid.map(fn _x, _y, data -> %{new_data: Integer.to_string(data)} end)
 
     expected_map_list = [

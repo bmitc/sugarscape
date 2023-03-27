@@ -3,6 +3,8 @@ defmodule Sugarscape.Grid do
   Implements a 2D grid
   """
 
+  alias Sugarscape.Types
+
   @enforce_keys [:size, :data]
   defstruct @enforce_keys
 
@@ -22,7 +24,7 @@ defmodule Sugarscape.Grid do
   (x,y)-coordinates to initialize each coordinate value for a grid of the given width and height.
   The (x,y)-coordinates always start at 1.
   """
-  @spec new(pos_integer, pos_integer, ({pos_integer, pos_integer} -> data)) :: __MODULE__.t(data)
+  @spec new(pos_integer, pos_integer, (Types.coordinate() -> data)) :: __MODULE__.t(data)
         when data: any
   def new(width, height, initializer) do
     data =
@@ -53,5 +55,13 @@ defmodule Sugarscape.Grid do
         mapper.(x, y, data)
       )
     end)
+  end
+
+  @doc """
+  Indexes a grid by getting the grid's value at the given coordinate location
+  """
+  @spec index(__MODULE__.t(data), Types.coordinate()) :: data when data: any
+  def index(grid, {x0, y0}) do
+    Enum.find(grid, fn %{x: x, y: y} -> x == x0 and y == y0 end)
   end
 end
