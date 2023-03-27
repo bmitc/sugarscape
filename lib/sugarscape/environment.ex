@@ -21,13 +21,31 @@ defmodule Sugarscape.Environment do
   @left_lower_quadrant_center {16, 36}
   @right_upper_quadrant_center {40, 10}
 
+  # These values are hand picked in order to replicate the sugarscape environment
+  # found in the book
+  @gaussian_hill_centers [@right_upper_quadrant_center, @left_lower_quadrant_center]
+  @gaussian_spread 9.3
+
+  @doc """
+  Creates a new environment with two hills in the lower left and upper right quadrants
+  with their sugar distributed via a Gaussian distribution starting from the hill center
+  """
   @spec new_gaussian(pos_integer, pos_integer) :: __MODULE__.t()
   def new_gaussian(width, height) do
     %__MODULE__{
-      grid: Grid.new(width, height, &(assign_level(&1, &2) |> Resource.new()))
+      grid:
+        Grid.new(width, height, fn coordinate ->
+          coordinate
+          |> assign_level()
+          |> Resource.new()
+        end)
     }
   end
 
+  @doc """
+  Flattens an environment down to a list of maps consisting of the (x,y)-coordinates
+  and the level of the resource at each coordinate
+  """
   @spec flatten(__MODULE__.t()) :: [%{x: pos_integer, y: pos_integer, level: pos_integer}]
   def flatten(environment) do
     environment.grid
@@ -53,25 +71,22 @@ defmodule Sugarscape.Environment do
     )
   end
 
-  @spec assign_level(number, number) :: number
-  defp assign_level(x, y) do
+  # Assigns a resource level to the given (x,y)-coordinate
+  @spec assign_level({number, number}) :: number
+  defp assign_level({x, y}) do
     amplitude = 4
 
-    {quadrant2_x, quadrant2_y} = @right_upper_quadrant_center
-    {quadrant3_x, quadrant3_y} = @left_lower_quadrant_center
-
-    distance_to_quadrant2_center =
-      :math.sqrt(:math.pow(x - quadrant2_x, 2) + :math.pow(y - quadrant2_y, 2))
-
-    distance_to_quadrant3_center =
-      :math.sqrt(:math.pow(x - quadrant3_x, 2) + :math.pow(y - quadrant3_y, 2))
-
-    if distance_to_quadrant2_center <= distance_to_quadrant3_center do
-      gaussian(x, y, quadrant2_x, quadrant2_y, amplitude)
-    else
-      gaussian(x, y, quadrant3_x, quadrant3_y, amplitude)
-    end
+    @gaussian_hill_centers
+    |> Enum.min_by(fn center -> calculate_distance({x, y}, center) end)
+    |> (fn {x_center, y_center} -> gaussian(x, y, x_center, y_center, amplitude) end).()
     |> round()
+  end
+
+  # Calculates the distance between two coordinates
+  @spec calculate_distance(coordinate, coordinate) :: number
+  defp calculate_distance({x1, y1}, {x2, y2}) do
+    (:math.pow(x1 - x2, 2) + :math.pow(y1 - y2, 2))
+    |> :math.sqrt()
   end
 
   # @spec get_quadrant(number, number, coordinate) :: atom
@@ -84,11 +99,15 @@ defmodule Sugarscape.Environment do
   #   end
   # end
 
+  # Calculates a Gaussian distribution given the (x,y)-coordinate and another
+  # (x_c, y_c)-coordinate for the center of the distribution.
   @spec gaussian(number, number, number, number, number) :: number
   defp gaussian(x, y, center_x, center_y, amplitude) do
-    spread_x = 10
-    spread_y = 10
+    # As noted above, the spread is hand picked
+    spread_x = @gaussian_spread
+    spread_y = @gaussian_spread
 
+    # Standard formula for a 2D Gaussian distribution
     x_component = :math.pow(x - center_x, 2) / (2 * :math.pow(spread_x, 2))
     y_component = :math.pow(y - center_y, 2) / (2 * :math.pow(spread_y, 2))
 

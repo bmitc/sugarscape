@@ -22,13 +22,13 @@ defmodule Sugarscape.Grid do
   (x,y)-coordinates to initialize each coordinate value for a grid of the given width and height.
   The (x,y)-coordinates always start at 1.
   """
-  @spec new(pos_integer, pos_integer, (pos_integer, pos_integer -> data)) :: __MODULE__.t(data)
+  @spec new(pos_integer, pos_integer, ({pos_integer, pos_integer} -> data)) :: __MODULE__.t(data)
         when data: any
   def new(width, height, initializer) do
     data =
       for y <- 1..height do
         for x <- 1..width do
-          %{x: x, y: y, data: initializer.(x, y)}
+          %{x: x, y: y, data: initializer.({x, y})}
         end
       end
       |> List.flatten()
