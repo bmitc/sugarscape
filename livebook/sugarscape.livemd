@@ -1,0 +1,107 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Sugarscape
+
+## Section
+
+```elixir
+alias Sugarscape.Environment
+alias Sugarscape.Resource
+alias VegaLite, as: Vl
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+VegaLite
+```
+
+```elixir
+data =
+  Environment.new_gaussian(50, 50)
+  |> Map.get(:grid)
+  |> Enum.with_index(fn list, y ->
+    Enum.with_index(
+      list,
+      fn %Resource{level: level}, x -> %{x: x + 1, y: y + 1, level: level} end
+    )
+  end)
+  |> List.flatten()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[
+  %{level: 0, x: 1, y: 1},
+  %{level: 0, x: 2, y: 1},
+  %{level: 0, x: 3, y: 1},
+  %{level: 0, x: 4, y: 1},
+  %{level: 0, x: 5, y: 1},
+  %{level: 0, x: 6, y: 1},
+  %{level: 0, x: 7, y: 1},
+  %{level: 0, x: 8, y: 1},
+  %{level: 0, x: 9, y: 1},
+  %{level: 0, x: 10, y: 1},
+  %{level: 0, x: 11, y: 1},
+  %{level: 0, x: 12, y: 1},
+  %{level: 0, x: 13, y: 1},
+  %{level: 0, x: 14, y: 1},
+  %{level: 0, x: 15, y: 1},
+  %{level: 0, x: 16, y: 1},
+  %{level: 0, x: 17, y: 1},
+  %{level: 0, x: 18, y: 1},
+  %{level: 0, x: 19, y: 1},
+  %{level: 0, x: 20, y: 1},
+  %{level: 0, x: 21, y: 1},
+  %{level: 1, x: 22, y: 1},
+  %{level: 1, x: 23, y: 1},
+  %{level: 1, x: 24, y: 1},
+  %{level: 1, x: 25, y: 1},
+  %{level: 1, x: 26, y: 1},
+  %{level: 1, x: 27, y: 1},
+  %{level: 1, x: 28, y: 1},
+  %{level: 1, x: 29, y: 1},
+  %{level: 2, x: 30, y: 1},
+  %{level: 2, x: 31, y: 1},
+  %{level: 2, x: 32, y: 1},
+  %{level: 2, x: 33, y: 1},
+  %{level: 2, x: 34, y: 1},
+  %{level: 2, x: 35, y: 1},
+  %{level: 2, x: 36, y: 1},
+  %{level: 3, x: 37, y: 1},
+  %{level: 3, x: 38, y: 1},
+  %{level: 3, x: 39, y: 1},
+  %{level: 3, x: 40, y: 1},
+  %{level: 3, x: 41, y: 1},
+  %{level: 3, x: 42, y: 1},
+  %{level: 3, x: 43, y: 1},
+  %{level: 2, x: 44, y: 1},
+  %{level: 2, x: 45, y: 1},
+  %{level: 2, x: 46, y: 1},
+  %{level: 2, x: 47, y: 1},
+  %{level: 2, x: 48, ...},
+  %{level: 2, ...},
+  %{...},
+  ...
+]
+```
+
+```elixir
+Vl.new(title: "Sugarscape", width: 500, height: 500)
+|> Vl.data_from_values(data)
+|> Vl.mark(:rect, opacity: 0.7, tooltip: true)
+|> Vl.encode_field(:x, "x", title: "X location")
+|> Vl.encode_field(:y, "y", title: "Y location")
+|> Vl.encode_field(:color, "level",
+  title: "Sugar level",
+  type: :ordinal,
+  legend: [title: "Sugar level"]
+)
+```
+
+<!-- livebook:{"output":true} -->
+
+```vega-lite
+null
+```
