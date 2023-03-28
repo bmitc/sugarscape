@@ -31,8 +31,8 @@ defmodule Sugarscape.Environment do
   Creates a new environment with two hills in the lower left and upper right quadrants
   with their sugar distributed via a Gaussian distribution starting from the hill center
   """
-  @spec new_gaussian(pos_integer, pos_integer) :: __MODULE__.t()
-  def new_gaussian(width, height) do
+  @spec two_hills(pos_integer, pos_integer) :: __MODULE__.t()
+  def two_hills(width, height) do
     initialize_resource = fn coordinate ->
       coordinate
       |> assign_level()
