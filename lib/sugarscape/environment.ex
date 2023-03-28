@@ -41,7 +41,8 @@ defmodule Sugarscape.Environment do
 
     initialize_agent = fn coordinate ->
       if Enum.random([true, false]) do
-        Agent.start_link(coordinate)
+        {:ok, pid} = Agent.start_link(coordinate)
+        pid
       else
         nil
       end
@@ -56,13 +57,36 @@ defmodule Sugarscape.Environment do
   end
 
   @doc """
-  Flattens an environment down to a list of maps consisting of the (x,y)-coordinates
+  Flatten an environment down to a list of maps consisting of the (x,y)-coordinates
   and the level of the resource at each coordinate
   """
-  @spec flatten(__MODULE__.t()) :: [%{x: pos_integer, y: pos_integer, level: pos_integer}]
-  def flatten(environment) do
+  @spec flatten_to_resources(__MODULE__.t()) :: [
+          %{x: pos_integer, y: pos_integer, level: pos_integer}
+        ]
+  def flatten_to_resources(environment) do
     environment.grid
     |> Grid.map(fn _x, _y, {resource, _agent} -> %{level: resource.level} end)
+  end
+
+  @doc """
+  Flatten an environment down to a list of maps consisting of the (x,y)-coordinates
+  and the agent at each coordinate
+  """
+  @spec flatten_to_agents(__MODULE__.t()) :: [
+          %{x: pos_integer, y: pos_integer, agent: Agent.t()}
+        ]
+  def flatten_to_agents(environment) do
+    environment.grid
+    |> Grid.map(fn _x, _y, {_resource, pid} -> %{agent: pid} end)
+    |> Enum.filter(fn %{agent: pid} -> pid != nil end)
+    |> Enum.map(fn %{agent: pid} = map ->
+      state =
+        Agent.get_state(pid)
+        |> Map.from_struct()
+        |> Map.update!(:location, &Tuple.to_list(&1))
+
+      Map.replace(map, :agent, state)
+    end)
   end
 
   @doc """
@@ -73,7 +97,7 @@ defmodule Sugarscape.Environment do
   @spec view_resources(__MODULE__.t(), String.t()) :: VegaLite.t()
   def view_resources(environment, title) do
     VegaLite.new(title: title, width: 500, height: 500)
-    |> VegaLite.data_from_values(flatten(environment))
+    |> VegaLite.data_from_values(flatten_to_resources(environment))
     |> VegaLite.mark(:rect,
       opacity: 0.8,
       tooltip: true
@@ -95,12 +119,7 @@ defmodule Sugarscape.Environment do
   @spec view_agents(__MODULE__.t(), String.t()) :: VegaLite.t()
   def view_agents(environment, title) do
     VegaLite.new(title: title, width: 500, height: 500)
-    |> VegaLite.data_from_values(
-      environment.grid
-      |> Grid.map(fn _x, _y, {_resource, agent} -> %{agent: agent} end)
-      |> Enum.filter(fn %{agent: agent} -> agent != nil end)
-      |> Enum.map(fn point -> Map.replace(point, :agent, true) end)
-    )
+    |> VegaLite.data_from_values(flatten_to_agents(environment))
     |> VegaLite.mark(:point,
       color: "red",
       filled: true,
@@ -109,6 +128,11 @@ defmodule Sugarscape.Environment do
     )
     |> VegaLite.encode_field(:x, "x", title: "X location")
     |> VegaLite.encode_field(:y, "y", title: "Y location")
+
+    # |> VegaLite.encode_field(:size, "agent.vision",
+    #   title: "Agent vision",
+    #   legend: [title: "Agent vision"]
+    # )
   end
 
   @doc """

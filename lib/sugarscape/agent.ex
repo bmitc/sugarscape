@@ -33,6 +33,11 @@ defmodule Sugarscape.Agent do
     GenServer.start_link(__MODULE__, {initial_location, Enum.random(1..6), Enum.random(1..4)})
   end
 
+  @spec get_state(pid) :: {:ok, __MODULE__.t()} | any
+  def get_state(pid) do
+    GenServer.call(pid, :get_state)
+  end
+
   ############################################################
   #### GenServer callbacks ###################################
   ############################################################
