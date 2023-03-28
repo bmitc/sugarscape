@@ -26,6 +26,7 @@ defmodule Sugarscape.MixProject do
       {:dialyxir, "~> 1.2", only: [:dev], runtime: false},
       {:kino_vega_lite, "~> 0.1.7"},
       {:nx, "~> 0.2"},
+      {:propcheck, "~> 1.4", only: [:test, :dev]},
       {:vega_lite, "~> 0.1.6"}
     ]
   end

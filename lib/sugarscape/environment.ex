@@ -5,6 +5,7 @@ defmodule Sugarscape.Environment do
 
   alias Sugarscape.Agent
   alias Sugarscape.Grid
+  alias Sugarscape.Perlin
   alias Sugarscape.Resource
   alias Sugarscape.Types
 
@@ -153,6 +154,8 @@ defmodule Sugarscape.Environment do
   # (x_c, y_c)-coordinate for the center of the distribution.
   @spec gaussian(Types.coordinate(), Types.coordinate(), number) :: number
   defp gaussian({center_x, center_y}, {x, y}, amplitude) do
+    noise = Perlin.noise(to_float(x), to_float(y), 0.5)
+    {x, y} = {x + noise, y + noise}
     # As noted above, the spread is hand picked
     spread_x = @gaussian_spread
     spread_y = @gaussian_spread
@@ -166,4 +169,8 @@ defmodule Sugarscape.Environment do
     |> :math.exp()
     |> Kernel.*(amplitude)
   end
+
+  # Convert a number to a `float` type
+  @spec to_float(number) :: float
+  defp to_float(number), do: number / 1
 end

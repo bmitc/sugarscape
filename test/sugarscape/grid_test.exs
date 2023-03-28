@@ -2,7 +2,7 @@ defmodule Sugarscape.GridTest do
   use ExUnit.Case
   alias Sugarscape.Grid
 
-  doctest Sugarscape
+  doctest Grid
 
   test "mapping over a grid" do
     mapped_grid =
