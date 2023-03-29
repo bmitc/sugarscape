@@ -31,8 +31,8 @@ defmodule Sugarscape.Environment do
   Creates a new environment with two hills in the lower left and upper right quadrants
   with their sugar distributed via a Gaussian distribution starting from the hill center
   """
-  @spec two_hills(pos_integer, pos_integer) :: __MODULE__.t()
-  def two_hills(width, height) do
+  @spec new(pos_integer, pos_integer) :: __MODULE__.t()
+  def new(width, height) do
     initialize_resource = fn coordinate ->
       coordinate
       |> assign_level()
@@ -42,6 +42,7 @@ defmodule Sugarscape.Environment do
     initialize_agent = fn coordinate ->
       if Enum.random([true, false]) do
         {:ok, pid} = Agent.start_link(coordinate)
+
         pid
       else
         nil
@@ -62,7 +63,7 @@ defmodule Sugarscape.Environment do
           ({Resource.t(), pid | nil} -> {Resource.t(), pid | nil})
         ) ::
           __MODULE__.t()
-  def update_resource_at(environment, coordinate, updater) do
+  def update_resource_at(%__MODULE__{} = environment, coordinate, updater) do
     %__MODULE__{
       environment
       | grid: Grid.update_at(environment.grid, coordinate, &updater.(&1))
@@ -70,14 +71,14 @@ defmodule Sugarscape.Environment do
   end
 
   @spec get_agents(__MODULE__.t()) :: [pid]
-  def get_agents(environment) do
+  def get_agents(%__MODULE__{} = environment) do
     environment.grid.data
     |> Enum.map(fn %{data: {_resource, agent_pid}} -> agent_pid end)
     |> Enum.filter(fn pid -> pid != nil end)
   end
 
   @spec tick(__MODULE__.t()) :: __MODULE__.t()
-  def tick(environment) do
+  def tick(%__MODULE__{} = environment) do
     new_environment =
       environment
       |> get_agents()
@@ -94,56 +95,33 @@ defmodule Sugarscape.Environment do
   end
 
   @spec tick(__MODULE__.t(), pos_integer) :: __MODULE__.t()
-  def tick(environment, n) do
+  def tick(%__MODULE__{} = environment, n) do
     Enum.to_list(1..n)
     |> List.foldl(environment, fn _, env -> tick(env) end)
   end
 
-  def shift_coordinate({width, _height}, {x, y}, :x, amount) do
-    # Change from 1-indexed to 0-indexed before modulo and then change
-    # back to 1-indexed.
-    {wraparound_value(x - 1 + amount, width) + 1, y}
-  end
-
-  def shift_coordinate({_width, height}, {x, y}, :y, amount) do
-    # Change from 1-indexed to 0-indexed before modulo and then change
-    # back to 1-indexed.
-    {x, wraparound_value(y - 1 + amount, height) + 1}
-  end
-
-  defp wraparound_value(value, mod) do
-    result = rem(value, mod)
-
-    if result >= 0 do
-      result
-    else
-      mod + result
-    end
-  end
-
-  @spec get_visible_locations(__MODULE__.t(), any, Coordinate.t()) :: [
+  @spec get_visible_locations(__MODULE__.t(), {:lattice, pos_integer}, Coordinate.t()) :: [
           {Coordinate.t(), Resource.t()}
         ]
-  def get_visible_locations(environment, {:lattice, vision}, coordinate) do
-    grid_size = {_width, _height} = environment.grid.size
+  def get_visible_locations(%__MODULE__{} = environment, {:lattice, vision}, coordinate) do
+    grid_size = Grid.size(environment.grid)
+    shifts = Enum.concat([-vision..-1, 1..vision])
 
     horizontal =
-      [-vision..-1, 1..vision]
-      |> Enum.concat()
-      |> Enum.map(fn shift -> shift_coordinate(grid_size, coordinate, :x, shift) end)
-      |> Enum.map(&{&1, get_resource_at(environment, &1)})
+      shifts
+      |> Enum.map(fn shift -> Coordinate.shift(coordinate, grid_size, :x, shift) end)
+      |> Enum.map(fn coordinate -> {coordinate, get_resource_at(environment, coordinate)} end)
 
     vertical =
-      [-vision..-1, 1..vision]
-      |> Enum.concat()
-      |> Enum.map(fn shift -> shift_coordinate(grid_size, coordinate, :y, shift) end)
-      |> Enum.map(&{&1, get_resource_at(environment, &1)})
+      shifts
+      |> Enum.map(fn shift -> Coordinate.shift(coordinate, grid_size, :y, shift) end)
+      |> Enum.map(fn coordinate -> {coordinate, get_resource_at(environment, coordinate)} end)
 
     Enum.concat(horizontal, vertical)
   end
 
   @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t()
-  def get_resource_at(environment, location) do
+  def get_resource_at(%__MODULE__{} = environment, location) do
     {%Resource{} = resource, _agent_pid} = Grid.index(environment.grid, location)
     resource
   end
@@ -155,7 +133,7 @@ defmodule Sugarscape.Environment do
   @spec flatten_to_resources(__MODULE__.t()) :: [
           %{x: pos_integer, y: pos_integer, level: pos_integer}
         ]
-  def flatten_to_resources(environment) do
+  def flatten_to_resources(%__MODULE__{} = environment) do
     environment.grid
     |> Grid.map(fn _x, _y, {resource, _agent} -> %{level: resource.level} end)
   end
@@ -167,7 +145,7 @@ defmodule Sugarscape.Environment do
   @spec flatten_to_agents(__MODULE__.t()) :: [
           %{x: pos_integer, y: pos_integer, agent: Agent.t()}
         ]
-  def flatten_to_agents(environment) do
+  def flatten_to_agents(%__MODULE__{} = environment) do
     environment.grid
     |> Grid.map(fn _x, _y, {_resource, pid} -> %{agent: pid} end)
     |> Enum.filter(fn %{agent: pid} -> pid != nil end)
@@ -182,12 +160,27 @@ defmodule Sugarscape.Environment do
   end
 
   @doc """
+  Determines whether the given location is occupied by an agent or is empty
+  """
+  @spec occupied?(__MODULE__.t(), Coordinate.t()) :: boolean
+  def occupied?(%__MODULE__{} = environment, {x, y}) do
+    environment.grid
+    |> Grid.index({x, y})
+    |> elem(1)
+    |> Kernel.!==(nil)
+  end
+
+  ############################################################
+  #### VegaLite functions ####################################
+  ############################################################
+
+  @doc """
   Return a `VegaLite` graphics specification that can be displayed in a
   Livebook notebook. This will display an environment's layout of resources
   on the environment's grid.
   """
   @spec view_resources(__MODULE__.t(), String.t()) :: VegaLite.t()
-  def view_resources(environment, title) do
+  def view_resources(%__MODULE__{} = environment, title) do
     VegaLite.new(title: title, width: 500, height: 500)
     |> VegaLite.data_from_values(flatten_to_resources(environment))
     |> VegaLite.mark(:rect,
@@ -209,7 +202,7 @@ defmodule Sugarscape.Environment do
   on the environment's grid.
   """
   @spec view_agents(__MODULE__.t(), String.t()) :: VegaLite.t()
-  def view_agents(environment, title) do
+  def view_agents(%__MODULE__{} = environment, title) do
     VegaLite.new(title: title, width: 500, height: 500)
     |> VegaLite.data_from_values(flatten_to_agents(environment))
     |> VegaLite.mark(:point,
@@ -227,16 +220,9 @@ defmodule Sugarscape.Environment do
     # )
   end
 
-  @doc """
-  Determines whether the given location is occupied by an agent or is empty
-  """
-  @spec occupied?(__MODULE__.t(), Coordinate.t()) :: boolean
-  def occupied?(environment, {x, y}) do
-    environment.grid
-    |> Grid.index({x, y})
-    |> elem(1)
-    |> Kernel.!==(nil)
-  end
+  ############################################################
+  #### Private functions #####################################
+  ############################################################
 
   # Assigns a resource level to the given (x,y)-coordinate
   @spec assign_level(Coordinate.t()) :: number
@@ -248,16 +234,6 @@ defmodule Sugarscape.Environment do
     |> gaussian({x, y}, amplitude)
     |> round()
   end
-
-  # @spec get_quadrant(number, number, coordinate) :: atom
-  # defp get_quadrant(x, y, {size_x, size_y} = _grid_size) do
-  #   cond do
-  #     x <= size_x / 2 and y <= size_y / 2 -> :quadrant_one
-  #     x >= size_x / 2 and y <= size_y / 2 -> :quadrant_two
-  #     x <= size_x / 2 and y >= size_y / 2 -> :quadrant_three
-  #     true -> :quadrant_four
-  #   end
-  # end
 
   # Calculates a Gaussian distribution given the (x,y)-coordinate and another
   # (x_c, y_c)-coordinate for the center of the distribution.

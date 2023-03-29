@@ -26,20 +26,47 @@ defmodule Sugarscape.Agent do
 
   @type message :: {:take_turn, Environment.t()} | :get_state
 
+  ############################################################
+  #### Public functions ######################################
+  ############################################################
+
+  @doc """
+  Creates a new agent state
+  """
+  @spec new(Coordinate.t()) :: __MODULE__.t()
+  def new(initial_location) do
+    new(initial_location, Enum.random(1..6), Enum.random(1..4))
+  end
+
+  @doc """
+  Creates a new agent state
+  """
+  @spec new(Coordinate.t(), pos_integer(), pos_integer()) :: __MODULE__.t()
+  def new(initial_location, vision, metabolism) do
+    %__MODULE__{
+      location: initial_location,
+      vision: vision,
+      metabolism: metabolism,
+      sugar_holdings: 0,
+      state: :alive
+    }
+  end
+
   @doc """
   Starts an agent `GenServer` with the given location
   """
   @spec start_link(Coordinate.t()) :: GenServer.on_start()
-  def start_link(initial_location) do
-    GenServer.start_link(__MODULE__, {initial_location, Enum.random(1..6), Enum.random(1..4)})
+  def start_link(initial_location) when is_tuple(initial_location) do
+    GenServer.start_link(__MODULE__, new(initial_location))
   end
 
   @spec get_state(pid) :: {:ok, __MODULE__.t()} | any
-  def get_state(pid) do
+  def get_state(pid) when is_pid(pid) do
     GenServer.call(pid, :get_state)
   end
 
-  def take_turn(pid, environment) do
+  @spec take_turn(pid, Environment.t()) :: any
+  def take_turn(pid, %Environment{} = environment) when is_pid(pid) do
     GenServer.call(pid, {:take_turn, environment})
   end
 
@@ -48,34 +75,30 @@ defmodule Sugarscape.Agent do
   ############################################################
 
   @impl GenServer
-  @spec init({Coordinate.t(), pos_integer(), pos_integer()}) :: {:ok, __MODULE__.t()}
-  def init({initial_location, vision, metabolism}) do
-    {:ok,
-     %__MODULE__{
-       location: initial_location,
-       vision: vision,
-       metabolism: metabolism,
-       sugar_holdings: 0,
-       state: :alive
-     }}
-  end
+  @spec init(__MODULE__.t()) :: {:ok, __MODULE__.t()}
+  def init(agent), do: {:ok, agent}
 
   @impl GenServer
   def handle_call({:take_turn, environment}, _from, agent) do
+    # Get all the visible locations in the horizontal and vertical directions
+    # using the agent's vision. visible_locations is a list of {Coordinate.t(), Resource.t()}.
     visible_locations =
       Environment.get_visible_locations(environment, {:lattice, agent.vision}, agent.location)
 
+    # Get the maximum resource level that the agent can see
     {_, %Resource{level: maximum_resource_level}} =
       Enum.max_by(visible_locations, fn {_, %Resource{} = resource} -> resource.level end)
 
-    {{_x, _y} = closest_location, %Resource{} = closest_resource} =
+    # Find the closest coordinate location that has the maximum resource level
+    {closest_location, %Resource{level: ^maximum_resource_level} = closest_resource} =
       visible_locations
       |> Enum.filter(fn {_, %Resource{} = resource} ->
         resource.level == maximum_resource_level
       end)
-      |> Enum.sort_by(fn {coordinate, _} ->
-        Environment.calculate_distance(coordinate, agent.location)
-      end)
+      |> Enum.sort_by(
+        fn {coordinate, _} -> Coordinate.distance(coordinate, agent.location) end,
+        fn distance1, distance2 -> distance1 <= distance2 end
+      )
       |> List.first()
 
     new_sugar_holdings = agent.sugar_holdings + closest_resource.level - agent.metabolism
@@ -122,8 +145,11 @@ defmodule Sugarscape.Agent do
     {:reply, agent, agent}
   end
 
+  ############################################################
+  #### Private functions #####################################
+  ############################################################
+
+  # Determines whether the agent is alive or has perished
   @spec is_alive?(__MODULE__.t()) :: boolean
-  def is_alive?(agent) do
-    agent.state == :alive
-  end
+  defp is_alive?(agent), do: agent.state == :alive
 end
