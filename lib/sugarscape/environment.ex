@@ -56,6 +56,98 @@ defmodule Sugarscape.Environment do
     }
   end
 
+  @spec update_resource_at(
+          __MODULE__.t(),
+          Types.coordinate(),
+          ({Resource.t(), pid | nil} -> {Resource.t(), pid | nil})
+        ) ::
+          __MODULE__.t()
+  def update_resource_at(environment, coordinate, updater) do
+    %__MODULE__{
+      environment
+      | grid: Grid.update_at(environment.grid, coordinate, &updater.(&1))
+    }
+  end
+
+  @spec get_agents(__MODULE__.t()) :: [pid]
+  def get_agents(environment) do
+    environment.grid.data
+    |> Enum.map(fn %{data: {_resource, agent_pid}} -> agent_pid end)
+    |> Enum.filter(fn pid -> pid != nil end)
+  end
+
+  @spec tick(__MODULE__.t()) :: __MODULE__.t()
+  def tick(environment) do
+    new_environment =
+      environment
+      |> get_agents()
+      |> List.foldl(environment, fn agent_pid, env -> Agent.take_turn(agent_pid, env) end)
+
+    # Grow resources and remove perished agents
+    new_grid =
+      new_environment.grid
+      |> Grid.map_data(fn {resource, agent} ->
+        {Resource.calculate_new_level(resource), agent}
+      end)
+
+    %__MODULE__{new_environment | grid: new_grid}
+  end
+
+  @spec tick(__MODULE__.t(), pos_integer) :: __MODULE__.t()
+  def tick(environment, n) do
+    Enum.to_list(1..n)
+    |> List.foldl(environment, fn _, env -> tick(env) end)
+  end
+
+  def shift_coordinate({width, _height}, {x, y}, :x, amount) do
+    # Change from 1-indexed to 0-indexed before modulo and then change
+    # back to 1-indexed.
+    {wraparound_value(x - 1 + amount, width) + 1, y}
+  end
+
+  def shift_coordinate({_width, height}, {x, y}, :y, amount) do
+    # Change from 1-indexed to 0-indexed before modulo and then change
+    # back to 1-indexed.
+    {x, wraparound_value(y - 1 + amount, height) + 1}
+  end
+
+  defp wraparound_value(value, mod) do
+    result = rem(value, mod)
+
+    if result >= 0 do
+      result
+    else
+      mod + result
+    end
+  end
+
+  @spec get_visible_locations(__MODULE__.t(), any, Types.coordinate()) :: [
+          {Types.coordinate(), Resource.t()}
+        ]
+  def get_visible_locations(environment, {:lattice, vision}, coordinate) do
+    grid_size = {_width, _height} = environment.grid.size
+
+    horizontal =
+      [-vision..-1, 1..vision]
+      |> Enum.concat()
+      |> Enum.map(fn shift -> shift_coordinate(grid_size, coordinate, :x, shift) end)
+      |> Enum.map(&{&1, get_resource_at(environment, &1)})
+
+    vertical =
+      [-vision..-1, 1..vision]
+      |> Enum.concat()
+      |> Enum.map(fn shift -> shift_coordinate(grid_size, coordinate, :y, shift) end)
+      |> Enum.map(&{&1, get_resource_at(environment, &1)})
+
+    Enum.concat(horizontal, vertical)
+  end
+
+  @spec get_resource_at(__MODULE__.t(), Types.coordinate()) :: Resource.t()
+  def get_resource_at(environment, location) do
+    {%Resource{} = resource, _agent_pid} = Grid.index(environment.grid, location)
+    resource
+  end
+
   @doc """
   Flatten an environment down to a list of maps consisting of the (x,y)-coordinates
   and the level of the resource at each coordinate
@@ -159,7 +251,7 @@ defmodule Sugarscape.Environment do
 
   # Calculates the distance between two coordinates
   @spec calculate_distance(Types.coordinate(), Types.coordinate()) :: number
-  defp calculate_distance({x1, y1}, {x2, y2}) do
+  def calculate_distance({x1, y1}, {x2, y2}) do
     (:math.pow(x1 - x2, 2) + :math.pow(y1 - y2, 2))
     |> :math.sqrt()
   end

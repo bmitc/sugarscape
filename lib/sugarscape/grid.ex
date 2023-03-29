@@ -38,6 +38,15 @@ defmodule Sugarscape.Grid do
     %__MODULE__{size: {width, height}, data: data}
   end
 
+  @spec map_data(__MODULE__.t(data), (data -> data)) :: __MODULE__.t(data) when data: any
+  def map_data(grid, fun) do
+    new_data =
+      grid.data
+      |> Enum.map(fn %{data: data} = element -> %{element | data: fun.(data)} end)
+
+    %__MODULE__{grid | data: new_data}
+  end
+
   @doc """
   Maps over a grid's data and returns a list of a map `%{x: x-coord, y: y-coord}` merged
   with the map that the `mapper` function returns. This is useful to convert a grid's
@@ -62,6 +71,36 @@ defmodule Sugarscape.Grid do
   """
   @spec index(__MODULE__.t(data), Types.coordinate()) :: data when data: any
   def index(grid, {x0, y0}) do
-    Enum.find(grid, fn %{x: x, y: y} -> x == x0 and y == y0 end)
+    grid.data
+    |> Enum.find(fn %{x: x, y: y} -> x == x0 and y == y0 end)
+    |> Map.fetch!(:data)
+  end
+
+  @doc """
+  Updates the grid's data element at the given coordinate
+  """
+  @spec update_at(__MODULE__.t(data), Types.coordinate(), (data -> data)) :: __MODULE__.t(data)
+        when data: any
+  def update_at(grid, {x, y}, fun) do
+    {width, _height} = grid.size
+    index = convert_2d_index_to_1d_index(x - 1, y - 1, width)
+
+    %__MODULE__{
+      grid
+      | data:
+          List.update_at(grid.data, index, fn element ->
+            Map.update!(element, :data, &fun.(&1))
+          end)
+    }
+  end
+
+  # Given a 2D array's width (number of columns), converts a 1D array index to a 2D array (x,y) index
+  # defp convert_1d_index_to_2d_index(index, width) do
+  #   {rem(index, width), div(index, width)}
+  # end
+
+  # Given a 2D array's width (number of columns), converts a 2D array (x,y) index to a 1D array index
+  defp convert_2d_index_to_1d_index(x, y, width) do
+    x + y * width
   end
 end
