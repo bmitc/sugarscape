@@ -24,10 +24,7 @@ defmodule Sugarscape.GridTest do
   test "updating a grid element" do
     grid =
       Grid.new(2, 3, &Function.identity/1)
-      |> Grid.update_at({2, 3}, fn {x, y} ->
-        IO.inspect({x, y})
-        x * y
-      end)
+      |> Grid.update_at({2, 3}, fn {x, y} -> x * y end)
 
     assert Grid.index(grid, {2, 3}) == 6
   end

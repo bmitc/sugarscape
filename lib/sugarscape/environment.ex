@@ -4,10 +4,10 @@ defmodule Sugarscape.Environment do
   """
 
   alias Sugarscape.Agent
+  alias Sugarscape.Coordinate
   alias Sugarscape.Grid
   alias Sugarscape.Perlin
   alias Sugarscape.Resource
-  alias Sugarscape.Types
 
   alias VegaLite
 
@@ -58,7 +58,7 @@ defmodule Sugarscape.Environment do
 
   @spec update_resource_at(
           __MODULE__.t(),
-          Types.coordinate(),
+          Coordinate.t(),
           ({Resource.t(), pid | nil} -> {Resource.t(), pid | nil})
         ) ::
           __MODULE__.t()
@@ -121,8 +121,8 @@ defmodule Sugarscape.Environment do
     end
   end
 
-  @spec get_visible_locations(__MODULE__.t(), any, Types.coordinate()) :: [
-          {Types.coordinate(), Resource.t()}
+  @spec get_visible_locations(__MODULE__.t(), any, Coordinate.t()) :: [
+          {Coordinate.t(), Resource.t()}
         ]
   def get_visible_locations(environment, {:lattice, vision}, coordinate) do
     grid_size = {_width, _height} = environment.grid.size
@@ -142,7 +142,7 @@ defmodule Sugarscape.Environment do
     Enum.concat(horizontal, vertical)
   end
 
-  @spec get_resource_at(__MODULE__.t(), Types.coordinate()) :: Resource.t()
+  @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t()
   def get_resource_at(environment, location) do
     {%Resource{} = resource, _agent_pid} = Grid.index(environment.grid, location)
     resource
@@ -230,7 +230,7 @@ defmodule Sugarscape.Environment do
   @doc """
   Determines whether the given location is occupied by an agent or is empty
   """
-  @spec occupied?(__MODULE__.t(), Types.coordinate()) :: boolean
+  @spec occupied?(__MODULE__.t(), Coordinate.t()) :: boolean
   def occupied?(environment, {x, y}) do
     environment.grid
     |> Grid.index({x, y})
@@ -239,21 +239,14 @@ defmodule Sugarscape.Environment do
   end
 
   # Assigns a resource level to the given (x,y)-coordinate
-  @spec assign_level(Types.coordinate()) :: number
+  @spec assign_level(Coordinate.t()) :: number
   defp assign_level({x, y}) do
     amplitude = 4
 
     @gaussian_hill_centers
-    |> Enum.min_by(fn center -> calculate_distance({x, y}, center) end)
+    |> Enum.min_by(fn center -> Coordinate.distance({x, y}, center) end)
     |> gaussian({x, y}, amplitude)
     |> round()
-  end
-
-  # Calculates the distance between two coordinates
-  @spec calculate_distance(Types.coordinate(), Types.coordinate()) :: number
-  def calculate_distance({x1, y1}, {x2, y2}) do
-    (:math.pow(x1 - x2, 2) + :math.pow(y1 - y2, 2))
-    |> :math.sqrt()
   end
 
   # @spec get_quadrant(number, number, coordinate) :: atom
@@ -268,7 +261,7 @@ defmodule Sugarscape.Environment do
 
   # Calculates a Gaussian distribution given the (x,y)-coordinate and another
   # (x_c, y_c)-coordinate for the center of the distribution.
-  @spec gaussian(Types.coordinate(), Types.coordinate(), number) :: number
+  @spec gaussian(Coordinate.t(), Coordinate.t(), number) :: number
   defp gaussian({center_x, center_y}, {x, y}, amplitude) do
     noise = Perlin.noise(to_float(x), to_float(y), 0.5)
     {x, y} = {x + noise, y + noise}

@@ -3,7 +3,7 @@ defmodule Sugarscape.Grid do
   Implements a 2D grid
   """
 
-  alias Sugarscape.Types
+  alias Sugarscape.Coordinate
 
   @enforce_keys [:size, :data]
   defstruct @enforce_keys
@@ -24,7 +24,7 @@ defmodule Sugarscape.Grid do
   (x,y)-coordinates to initialize each coordinate value for a grid of the given width and height.
   The (x,y)-coordinates always start at 1.
   """
-  @spec new(pos_integer, pos_integer, (Types.coordinate() -> data)) :: __MODULE__.t(data)
+  @spec new(pos_integer, pos_integer, (Coordinate.t() -> data)) :: __MODULE__.t(data)
         when data: any
   def new(width, height, initializer) do
     data =
@@ -69,7 +69,7 @@ defmodule Sugarscape.Grid do
   @doc """
   Indexes a grid by getting the grid's value at the given coordinate location
   """
-  @spec index(__MODULE__.t(data), Types.coordinate()) :: data when data: any
+  @spec index(__MODULE__.t(data), Coordinate.t()) :: data when data: any
   def index(grid, {x0, y0}) do
     grid.data
     |> Enum.find(fn %{x: x, y: y} -> x == x0 and y == y0 end)
@@ -79,7 +79,7 @@ defmodule Sugarscape.Grid do
   @doc """
   Updates the grid's data element at the given coordinate
   """
-  @spec update_at(__MODULE__.t(data), Types.coordinate(), (data -> data)) :: __MODULE__.t(data)
+  @spec update_at(__MODULE__.t(data), Coordinate.t(), (data -> data)) :: __MODULE__.t(data)
         when data: any
   def update_at(grid, {x, y}, fun) do
     {width, _height} = grid.size

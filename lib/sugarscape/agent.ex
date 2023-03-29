@@ -5,15 +5,15 @@ defmodule Sugarscape.Agent do
 
   use GenServer
 
+  alias Sugarscape.Coordinate
   alias Sugarscape.Environment
   alias Sugarscape.Resource
-  alias Sugarscape.Types
 
   @enforce_keys [:location, :vision, :metabolism, :sugar_holdings, :state]
   defstruct @enforce_keys
 
   @type t :: %__MODULE__{
-          location: Types.coordinate(),
+          location: Coordinate.t(),
           # vision range = [1, 6]
           vision: pos_integer,
           # metabolism range = [1, 4]
@@ -29,7 +29,7 @@ defmodule Sugarscape.Agent do
   @doc """
   Starts an agent `GenServer` with the given location
   """
-  @spec start_link(Types.coordinate()) :: GenServer.on_start()
+  @spec start_link(Coordinate.t()) :: GenServer.on_start()
   def start_link(initial_location) do
     GenServer.start_link(__MODULE__, {initial_location, Enum.random(1..6), Enum.random(1..4)})
   end
@@ -48,7 +48,7 @@ defmodule Sugarscape.Agent do
   ############################################################
 
   @impl GenServer
-  @spec init({Types.coordinate(), pos_integer(), pos_integer()}) :: {:ok, __MODULE__.t()}
+  @spec init({Coordinate.t(), pos_integer(), pos_integer()}) :: {:ok, __MODULE__.t()}
   def init({initial_location, vision, metabolism}) do
     {:ok,
      %__MODULE__{

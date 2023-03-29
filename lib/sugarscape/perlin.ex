@@ -5,7 +5,7 @@ defmodule Sugarscape.Perlin do
 
   # Reference: https://mrl.cs.nyu.edu/~perlin/noise/
 
-  # Note: this file is ignored by the formatter due to the heav_y
+  # Note: this file is ignored by the formatter due to the heavy
   # use of numerical code.
 
   import Bitwise
