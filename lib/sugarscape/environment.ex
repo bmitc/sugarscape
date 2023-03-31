@@ -16,7 +16,7 @@ defmodule Sugarscape.Environment do
   defstruct @enforce_keys
 
   @type t :: %__MODULE__{
-          grid: Grid.t({Resource.t(), agent :: pid | nil})
+          grid: Grid.t({Resource.t() | nil, agent :: pid | nil})
         }
 
   @left_lower_quadrant_center {16, 36}
@@ -25,7 +25,7 @@ defmodule Sugarscape.Environment do
   # These values are hand picked in order to replicate the sugarscape environment
   # found in the book
   @gaussian_hill_centers [@right_upper_quadrant_center, @left_lower_quadrant_center]
-  @gaussian_spread 9.3
+  @gaussian_spread 12
 
   @doc """
   Creates a new environment with two hills in the lower left and upper right quadrants
@@ -34,9 +34,16 @@ defmodule Sugarscape.Environment do
   @spec new(pos_integer, pos_integer) :: __MODULE__.t()
   def new(width, height) do
     initialize_resource = fn coordinate ->
-      coordinate
-      |> assign_level()
-      |> Resource.new()
+      resource =
+        coordinate
+        |> assign_level()
+        |> Resource.new()
+
+      if resource.level == 0 do
+        nil
+      else
+        resource
+      end
     end
 
     initialize_agent = fn coordinate ->
@@ -57,13 +64,13 @@ defmodule Sugarscape.Environment do
     }
   end
 
-  @spec update_resource_at(
+  @spec update_at(
           __MODULE__.t(),
           Coordinate.t(),
           ({Resource.t(), pid | nil} -> {Resource.t(), pid | nil})
         ) ::
           __MODULE__.t()
-  def update_resource_at(%__MODULE__{} = environment, coordinate, updater) do
+  def update_at(%__MODULE__{} = environment, coordinate, updater) do
     %__MODULE__{
       environment
       | grid: Grid.update_at(environment.grid, coordinate, &updater.(&1))
@@ -82,26 +89,33 @@ defmodule Sugarscape.Environment do
     new_environment =
       environment
       |> get_agents()
+      |> Enum.shuffle()
       |> List.foldl(environment, fn agent_pid, env -> Agent.take_turn(agent_pid, env) end)
 
     # Grow resources and remove perished agents
     new_grid =
       new_environment.grid
-      |> Grid.map_data(fn {resource, agent} ->
-        {Resource.calculate_new_level(resource), agent}
+      |> Grid.map_data(fn {resource, agent_pid} ->
+        if is_nil(resource) do
+          {nil, agent_pid}
+        else
+          {Resource.calculate_new_level(resource), agent_pid}
+        end
       end)
 
     %__MODULE__{new_environment | grid: new_grid}
   end
 
-  @spec tick(__MODULE__.t(), pos_integer) :: __MODULE__.t()
+  @spec tick(__MODULE__.t(), non_neg_integer) :: __MODULE__.t()
+  def tick(%__MODULE__{} = environment, 0), do: environment
+
   def tick(%__MODULE__{} = environment, n) do
     Enum.to_list(1..n)
     |> List.foldl(environment, fn _, env -> tick(env) end)
   end
 
   @spec get_visible_locations(__MODULE__.t(), {:lattice, pos_integer}, Coordinate.t()) :: [
-          {Coordinate.t(), Resource.t()}
+          {Coordinate.t(), Resource.t() | nil}
         ]
   def get_visible_locations(%__MODULE__{} = environment, {:lattice, vision}, coordinate) do
     grid_size = Grid.size(environment.grid)
@@ -112,17 +126,21 @@ defmodule Sugarscape.Environment do
       |> Enum.map(fn shift -> Coordinate.shift(coordinate, grid_size, :x, shift) end)
       |> Enum.map(fn coordinate -> {coordinate, get_resource_at(environment, coordinate)} end)
 
+    # |> Enum.filter(fn {_coordinate, resource} -> !is_nil(resource) end)
+
     vertical =
       shifts
       |> Enum.map(fn shift -> Coordinate.shift(coordinate, grid_size, :y, shift) end)
       |> Enum.map(fn coordinate -> {coordinate, get_resource_at(environment, coordinate)} end)
 
+    # |> Enum.filter(fn {_coordinate, resource} -> !is_nil(resource) end)
+
     Enum.concat(horizontal, vertical)
   end
 
-  @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t()
+  @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t() | nil
   def get_resource_at(%__MODULE__{} = environment, location) do
-    {%Resource{} = resource, _agent_pid} = Grid.index(environment.grid, location)
+    {resource, _agent_pid} = Grid.index(environment.grid, location)
     resource
   end
 
@@ -135,7 +153,13 @@ defmodule Sugarscape.Environment do
         ]
   def flatten_to_resources(%__MODULE__{} = environment) do
     environment.grid
-    |> Grid.map(fn _x, _y, {resource, _agent} -> %{level: resource.level} end)
+    |> Grid.map(fn _x, _y, {resource, _agent} ->
+      if is_nil(resource) do
+        %{level: 0}
+      else
+        %{level: resource.level}
+      end
+    end)
   end
 
   @doc """

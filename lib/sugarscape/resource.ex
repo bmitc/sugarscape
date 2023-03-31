@@ -41,12 +41,12 @@ defmodule Sugarscape.Resource do
   end
 
   @doc """
-  Creates a new resource with the given level, a default capacity of 4,
+  Creates a new resource with the given level, a default capacity of the level,
   and a default growback rate of 1
   """
   @spec new(non_neg_integer()) :: __MODULE__.t()
   def new(level) do
-    new(level, @default_capacity, 1)
+    new(level, level, 1)
   end
 
   @doc """

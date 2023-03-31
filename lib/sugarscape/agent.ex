@@ -83,32 +83,58 @@ defmodule Sugarscape.Agent do
     # Get all the visible locations in the horizontal and vertical directions
     # using the agent's vision. visible_locations is a list of {Coordinate.t(), Resource.t()}.
     visible_locations =
-      Environment.get_visible_locations(environment, {:lattice, agent.vision}, agent.location)
+      environment
+      |> Environment.get_visible_locations({:lattice, agent.vision}, agent.location)
+      |> Enum.shuffle()
 
     # Get the maximum resource level that the agent can see
-    {_, %Resource{level: maximum_resource_level}} =
-      Enum.max_by(visible_locations, fn {_, %Resource{} = resource} -> resource.level end)
+    maximum_resource_level =
+      Enum.max_by(visible_locations, fn {_, resource} ->
+        case resource do
+          nil -> 0
+          %Resource{} -> resource.level
+        end
+      end)
+      |> case do
+        {_, nil} -> 0
+        {_, %Resource{} = resource} -> resource.level
+      end
 
     # Find the closest coordinate location that has the maximum resource level
-    {closest_location, %Resource{level: ^maximum_resource_level} = closest_resource} =
-      visible_locations
-      |> Enum.filter(fn {_, %Resource{} = resource} ->
-        resource.level == maximum_resource_level
-      end)
-      |> Enum.sort_by(
-        fn {coordinate, _} -> Coordinate.distance(coordinate, agent.location) end,
-        fn distance1, distance2 -> distance1 <= distance2 end
-      )
-      |> List.first()
+    {closest_location, _closest_resource} =
+      if maximum_resource_level == 0 do
+        {agent.location, nil}
+      else
+        visible_locations
+        |> Enum.filter(fn {_, resource} ->
+          if maximum_resource_level != 0 do
+            case resource do
+              nil -> false
+              %Resource{} -> resource.level == maximum_resource_level
+            end
+          else
+            case resource do
+              nil -> true
+              %Resource{} -> resource.level == 0
+            end
+          end
+        end)
+        |> Enum.shuffle()
+        |> Enum.sort_by(
+          fn {coordinate, _} -> Coordinate.distance(coordinate, agent.location) end,
+          fn distance1, distance2 -> distance1 <= distance2 end
+        )
+        |> List.first()
+      end
 
-    new_sugar_holdings = agent.sugar_holdings + closest_resource.level - agent.metabolism
+    new_sugar_holdings = agent.sugar_holdings + maximum_resource_level - agent.metabolism
 
     new_agent = %__MODULE__{
       agent
       | location: closest_location,
         sugar_holdings: new_sugar_holdings,
         state:
-          if new_sugar_holdings == 0 do
+          if new_sugar_holdings <= 0 do
             :perished
           else
             :alive
@@ -117,18 +143,26 @@ defmodule Sugarscape.Agent do
 
     new_environment =
       environment
-      # Remove agent from current location
-      |> Environment.update_resource_at(agent.location, fn {%Resource{} = resource, _agent} ->
+      # Remove agent from current location. There may not be a resource at the location,
+      # i.e., it's nil, so don't force a %Resource{} in the pattern match.
+      |> Environment.update_at(agent.location, fn {resource, _agent_pid} ->
         {resource, nil}
       end)
-      # Take away all of the resource at the new location and add new agent
-      |> Environment.update_resource_at(closest_location, fn {%Resource{} = resource, _agent} ->
-        {%Resource{resource | level: 0},
-         if is_alive?(new_agent) do
-           self()
-         else
-           nil
-         end}
+      # Take away all of the resource at the new location and add new agent's PID.
+      # There should be a resource at this location, i.e., not nil, so force the pattern
+      # match to check it's a %Resource{}.
+      |> Environment.update_at(closest_location, fn {resource, _agent_pid} ->
+        {
+          case resource do
+            nil -> nil
+            %Resource{} -> %Resource{resource | level: 0}
+          end,
+          if is_alive?(new_agent) do
+            self()
+          else
+            nil
+          end
+        }
       end)
 
     case new_agent.state do
