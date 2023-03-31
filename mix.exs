@@ -24,10 +24,12 @@ defmodule Sugarscape.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.2", only: [:dev], runtime: false},
+      # Needed for VegaLite exporting
+      {:jason, "~> 1.4"},
       {:kino_vega_lite, "~> 0.1.7"},
       {:nx, "~> 0.2"},
       {:propcheck, "~> 1.4", only: [:test, :dev]},
-      {:vega_lite, "~> 0.1.6"}
+      {:vega_lite, "~> 0.1.7"}
     ]
   end
 

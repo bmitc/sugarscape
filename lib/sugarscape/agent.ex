@@ -47,7 +47,7 @@ defmodule Sugarscape.Agent do
       location: initial_location,
       vision: vision,
       metabolism: metabolism,
-      sugar_holdings: 0,
+      sugar_holdings: 6,
       state: :alive
     }
   end

@@ -25,7 +25,7 @@ defmodule Sugarscape.Environment do
   # These values are hand picked in order to replicate the sugarscape environment
   # found in the book
   @gaussian_hill_centers [@right_upper_quadrant_center, @left_lower_quadrant_center]
-  @gaussian_spread 12
+  @gaussian_spread 14
 
   @doc """
   Creates a new environment with two hills in the lower left and upper right quadrants
