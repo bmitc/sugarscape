@@ -55,37 +55,16 @@ defmodule Sugarscape.Agent do
       |> Environment.get_visible_locations({:lattice, agent.vision}, agent.location)
       |> Enum.shuffle()
 
-    # Get the maximum resource level that the agent can see
-    maximum_resource_level =
-      Enum.max_by(visible_locations, fn {_, resource} ->
-        case resource do
-          nil -> 0
-          %Resource{} -> resource.level
-        end
-      end)
-      |> case do
-        {_, nil} -> 0
-        {_, %Resource{} = resource} -> resource.level
-      end
+    maximum_resource_level = get_maximum_resource_level(visible_locations)
 
     # Find the closest coordinate location that has the maximum resource level
-    {closest_location, _closest_resource} =
+    closest_location =
       if maximum_resource_level == 0 do
-        {agent.location, nil}
+        agent.location
       else
         visible_locations
         |> Enum.filter(fn {_, resource} ->
-          if maximum_resource_level != 0 do
-            case resource do
-              nil -> false
-              %Resource{} -> resource.level == maximum_resource_level
-            end
-          else
-            case resource do
-              nil -> true
-              %Resource{} -> resource.level == 0
-            end
-          end
+          Resource.has_level?(resource, maximum_resource_level)
         end)
         |> Enum.shuffle()
         |> Enum.sort_by(
@@ -93,6 +72,7 @@ defmodule Sugarscape.Agent do
           fn distance1, distance2 -> distance1 <= distance2 end
         )
         |> List.first()
+        |> elem(0)
       end
 
     new_sugar_holdings = agent.sugar_holdings + maximum_resource_level - agent.metabolism
@@ -101,12 +81,7 @@ defmodule Sugarscape.Agent do
       agent
       | location: closest_location,
         sugar_holdings: new_sugar_holdings,
-        state:
-          if new_sugar_holdings <= 0 do
-            :perished
-          else
-            :alive
-          end
+        state: alive?(new_sugar_holdings)
     }
 
     new_environment =
@@ -125,7 +100,7 @@ defmodule Sugarscape.Agent do
             nil -> nil
             %Resource{} -> %Resource{resource | level: 0}
           end,
-          if is_alive?(new_agent) do
+          if new_agent.state == :alive do
             new_agent
           else
             nil
@@ -141,6 +116,27 @@ defmodule Sugarscape.Agent do
   ############################################################
 
   # Determines whether the agent is alive or has perished
-  @spec is_alive?(__MODULE__.t()) :: boolean
-  defp is_alive?(agent), do: agent.state == :alive
+  @spec alive?(integer) :: :alive | :perished
+  defp alive?(sugar_holdings) do
+    if sugar_holdings <= 0 do
+      :perished
+    else
+      :alive
+    end
+  end
+
+  # Get the maximum resource level that the agent can see
+  @spec get_maximum_resource_level([{Coordinate.t(), Resource.t()}]) :: non_neg_integer
+  defp get_maximum_resource_level(locations) do
+    Enum.max_by(locations, fn {_, resource} ->
+      case resource do
+        nil -> 0
+        %Resource{} -> resource.level
+      end
+    end)
+    |> case do
+      {_, nil} -> 0
+      {_, %Resource{} = resource} -> resource.level
+    end
+  end
 end

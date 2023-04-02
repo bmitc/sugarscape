@@ -72,4 +72,19 @@ defmodule Sugarscape.Resource do
   def calculate_new_level(%__MODULE__{} = resource) do
     %__MODULE__{resource | level: min(resource.level + resource.growback_rate, resource.capacity)}
   end
+
+  @spec has_level?(__MODULE__.t(), non_neg_integer) :: boolean
+  def has_level?(resource, level) do
+    if level != 0 do
+      case resource do
+        nil -> false
+        %__MODULE__{} -> resource.level == level
+      end
+    else
+      case resource do
+        nil -> true
+        %__MODULE__{} -> resource.level == 0
+      end
+    end
+  end
 end
