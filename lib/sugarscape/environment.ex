@@ -16,7 +16,7 @@ defmodule Sugarscape.Environment do
   defstruct @enforce_keys
 
   @type t :: %__MODULE__{
-          grid: Grid.t({Resource.t() | nil, agent :: pid | nil})
+          grid: Grid.t({Resource.t() | nil, Agent.t() | nil})
         }
 
   @left_lower_quadrant_center {16, 36}
@@ -48,9 +48,7 @@ defmodule Sugarscape.Environment do
 
     initialize_agent = fn coordinate ->
       if Enum.random([true, false]) do
-        {:ok, pid} = Agent.start_link(coordinate)
-
-        pid
+        Agent.new(coordinate)
       else
         nil
       end
@@ -67,7 +65,7 @@ defmodule Sugarscape.Environment do
   @spec update_at(
           __MODULE__.t(),
           Coordinate.t(),
-          ({Resource.t(), pid | nil} -> {Resource.t(), pid | nil})
+          ({Resource.t(), Agent.t() | nil} -> {Resource.t(), Agent.t() | nil})
         ) ::
           __MODULE__.t()
   def update_at(%__MODULE__{} = environment, coordinate, updater) do
@@ -77,11 +75,11 @@ defmodule Sugarscape.Environment do
     }
   end
 
-  @spec get_agents(__MODULE__.t()) :: [pid]
+  @spec get_agents(__MODULE__.t()) :: [Agent.t()]
   def get_agents(%__MODULE__{} = environment) do
     environment.grid.data
-    |> Enum.map(fn %{data: {_resource, agent_pid}} -> agent_pid end)
-    |> Enum.filter(fn pid -> pid != nil end)
+    |> Enum.map(fn %{data: {_resource, agent}} -> agent end)
+    |> Enum.filter(fn agent -> agent != nil end)
   end
 
   @spec tick(__MODULE__.t()) :: __MODULE__.t()
@@ -90,16 +88,16 @@ defmodule Sugarscape.Environment do
       environment
       |> get_agents()
       |> Enum.shuffle()
-      |> List.foldl(environment, fn agent_pid, env -> Agent.take_turn(agent_pid, env) end)
+      |> List.foldl(environment, fn agent, env -> Agent.take_turn(env, agent) end)
 
     # Grow resources and remove perished agents
     new_grid =
       new_environment.grid
-      |> Grid.map_data(fn {resource, agent_pid} ->
+      |> Grid.map_data(fn {resource, agent} ->
         if is_nil(resource) do
-          {nil, agent_pid}
+          {nil, agent}
         else
-          {Resource.calculate_new_level(resource), agent_pid}
+          {Resource.calculate_new_level(resource), agent}
         end
       end)
 
@@ -140,7 +138,7 @@ defmodule Sugarscape.Environment do
 
   @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t() | nil
   def get_resource_at(%__MODULE__{} = environment, location) do
-    {resource, _agent_pid} = Grid.index(environment.grid, location)
+    {resource, _agent} = Grid.index(environment.grid, location)
     resource
   end
 
@@ -171,11 +169,11 @@ defmodule Sugarscape.Environment do
         ]
   def flatten_to_agents(%__MODULE__{} = environment) do
     environment.grid
-    |> Grid.map(fn _x, _y, {_resource, pid} -> %{agent: pid} end)
-    |> Enum.filter(fn %{agent: pid} -> pid != nil end)
-    |> Enum.map(fn %{agent: pid} = map ->
+    |> Grid.map(fn _x, _y, {_resource, agent} -> %{agent: agent} end)
+    |> Enum.filter(fn %{agent: agent} -> agent != nil end)
+    |> Enum.map(fn %{agent: agent} = map ->
       state =
-        Agent.get_state(pid)
+        agent
         |> Map.from_struct()
         |> Map.update!(:location, &Tuple.to_list(&1))
 

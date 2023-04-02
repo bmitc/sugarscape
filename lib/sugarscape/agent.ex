@@ -3,8 +3,6 @@ defmodule Sugarscape.Agent do
   Implements a standalone agent as a `GenServer`
   """
 
-  use GenServer
-
   alias Sugarscape.Coordinate
   alias Sugarscape.Environment
   alias Sugarscape.Resource
@@ -19,19 +17,15 @@ defmodule Sugarscape.Agent do
           # metabolism range = [1, 4]
           metabolism: pos_integer,
           sugar_holdings: non_neg_integer,
-          state: :alive
+          state: :alive | :perished
         }
-
-  @type state :: :alive | :perished
-
-  @type message :: {:take_turn, Environment.t()} | :get_state
 
   ############################################################
   #### Public functions ######################################
   ############################################################
 
   @doc """
-  Creates a new agent state
+  Creates a new agent
   """
   @spec new(Coordinate.t()) :: __MODULE__.t()
   def new(initial_location) do
@@ -39,7 +33,7 @@ defmodule Sugarscape.Agent do
   end
 
   @doc """
-  Creates a new agent state
+  Creates a new agent
   """
   @spec new(Coordinate.t(), pos_integer(), pos_integer()) :: __MODULE__.t()
   def new(initial_location, vision, metabolism) do
@@ -52,34 +46,8 @@ defmodule Sugarscape.Agent do
     }
   end
 
-  @doc """
-  Starts an agent `GenServer` with the given location
-  """
-  @spec start_link(Coordinate.t()) :: GenServer.on_start()
-  def start_link(initial_location) when is_tuple(initial_location) do
-    GenServer.start_link(__MODULE__, new(initial_location))
-  end
-
-  @spec get_state(pid) :: {:ok, __MODULE__.t()} | any
-  def get_state(pid) when is_pid(pid) do
-    GenServer.call(pid, :get_state)
-  end
-
-  @spec take_turn(pid, Environment.t()) :: any
-  def take_turn(pid, %Environment{} = environment) when is_pid(pid) do
-    GenServer.call(pid, {:take_turn, environment})
-  end
-
-  ############################################################
-  #### GenServer callbacks ###################################
-  ############################################################
-
-  @impl GenServer
-  @spec init(__MODULE__.t()) :: {:ok, __MODULE__.t()}
-  def init(agent), do: {:ok, agent}
-
-  @impl GenServer
-  def handle_call({:take_turn, environment}, _from, agent) do
+  @spec take_turn(Environment.t(), __MODULE__.t()) :: Environment.t()
+  def take_turn(%Environment{} = environment, %__MODULE__{} = agent) do
     # Get all the visible locations in the horizontal and vertical directions
     # using the agent's vision. visible_locations is a list of {Coordinate.t(), Resource.t()}.
     visible_locations =
@@ -145,38 +113,27 @@ defmodule Sugarscape.Agent do
       environment
       # Remove agent from current location. There may not be a resource at the location,
       # i.e., it's nil, so don't force a %Resource{} in the pattern match.
-      |> Environment.update_at(agent.location, fn {resource, _agent_pid} ->
+      |> Environment.update_at(agent.location, fn {resource, _agent} ->
         {resource, nil}
       end)
-      # Take away all of the resource at the new location and add new agent's PID.
+      # Take away all of the resource at the new location and add the new agent.
       # There should be a resource at this location, i.e., not nil, so force the pattern
       # match to check it's a %Resource{}.
-      |> Environment.update_at(closest_location, fn {resource, _agent_pid} ->
+      |> Environment.update_at(closest_location, fn {resource, _agent} ->
         {
           case resource do
             nil -> nil
             %Resource{} -> %Resource{resource | level: 0}
           end,
           if is_alive?(new_agent) do
-            self()
+            new_agent
           else
             nil
           end
         }
       end)
 
-    case new_agent.state do
-      :alive ->
-        {:reply, new_environment, new_agent}
-
-      _ ->
-        {:reply, new_environment, new_agent}
-        # :perished -> {:stop, "Agent has perished", new_environment, new_agent}
-    end
-  end
-
-  def handle_call(:get_state, _from, agent) do
-    {:reply, agent, agent}
+    new_environment
   end
 
   ############################################################
