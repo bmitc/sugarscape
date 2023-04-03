@@ -24,3 +24,11 @@ sugarscape-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Ignore any images created
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.gif
+*.mp4
