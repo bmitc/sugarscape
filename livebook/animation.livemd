@@ -1,0 +1,28 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Animating sugarscapes
+
+## Section
+
+```elixir
+alias Sugarscape.Environment
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Sugarscape.Environment
+```
+
+```elixir
+stop = Kino.Control.button("Stop animations")
+```
+
+```elixir
+Environment.new()
+|> Environment.animate(
+  iterations: 1000,
+  interval_ms: 100,
+  stop: stop
+)
+```

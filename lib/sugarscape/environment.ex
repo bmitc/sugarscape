@@ -31,8 +31,11 @@ defmodule Sugarscape.Environment do
   Creates a new environment with two hills in the lower left and upper right quadrants
   with their sugar distributed via a Gaussian distribution starting from the hill center
   """
-  @spec new(pos_integer, pos_integer) :: __MODULE__.t()
-  def new(width, height) do
+  @spec new() :: __MODULE__.t()
+  def new() do
+    width = 50
+    height = 50
+
     initialize_resource = fn coordinate ->
       resource =
         coordinate
@@ -240,6 +243,105 @@ defmodule Sugarscape.Environment do
     #   title: "Agent vision",
     #   legend: [title: "Agent vision"]
     # )
+  end
+
+  @doc """
+  Animates a sugarscape environment.
+
+  Options:
+    * `:title :: String.t()`: Title of the animation
+    * `:interval_ms :: pos_integer()`: The interval in milliseconds between each animation frame
+    * `:iterations :: pos_integer()`: The number of iterations to evolve the environment
+    * `:stop :: Kino.Control.t()`: Button control to stop the animation
+  """
+  @spec animate(__MODULE__.t(), keyword) :: Kino.nothing()
+  def animate(environment, options \\ []) do
+    title = Keyword.get(options, :title, "Sugarscape")
+    interval_ms = Keyword.get(options, :interval_ms, 500)
+    iterations = Keyword.get(options, :iterations, 6)
+    stop_control = Keyword.get(options, :stop, nil)
+
+    resources_dataset = make_ref() |> inspect()
+    agents_dataset = make_ref() |> inspect()
+
+    resources = flatten_to_resources(environment)
+    agents = flatten_to_agents(environment)
+
+    initial_chart =
+      VegaLite.new(title: title, width: 500, height: 500)
+      |> VegaLite.layers([
+        VegaLite.new()
+        |> VegaLite.data_from_values(resources, name: resources_dataset)
+        |> VegaLite.mark(:rect,
+          opacity: 0.8,
+          tooltip: true
+        )
+        |> VegaLite.encode_field(:x, "x", title: "X location")
+        |> VegaLite.encode_field(:y, "y", title: "Y location")
+        |> VegaLite.encode_field(:color, "level",
+          title: "Sugar level",
+          type: :ordinal,
+          legend: [title: "Sugar level"]
+        ),
+        VegaLite.new()
+        |> VegaLite.data_from_values(agents, name: agents_dataset)
+        |> VegaLite.mark(:point,
+          color: "red",
+          filled: true,
+          opacity: 0.8,
+          tooltip: true
+        )
+        |> VegaLite.encode_field(:x, "x", title: "X location")
+        |> VegaLite.encode_field(:y, "y", title: "Y location")
+      ])
+
+    update = fn chart, environment ->
+      resources = flatten_to_resources(environment)
+      agents = flatten_to_agents(environment)
+
+      :ok =
+        Kino.VegaLite.push_many(chart, resources,
+          window: Enum.count(resources),
+          dataset: resources_dataset
+        )
+
+      :ok =
+        Kino.VegaLite.push_many(chart, agents,
+          window: Enum.count(agents),
+          dataset: agents_dataset
+        )
+
+      :ok
+    end
+
+    chart = initial_chart |> Kino.VegaLite.new() |> Kino.render()
+
+    Stream.interval(interval_ms)
+    |> Stream.take(iterations)
+    |> Kino.animate(environment, fn i, env ->
+      update.(chart, env)
+
+      if !is_nil(stop_control) do
+        Kino.Control.subscribe(stop_control, :stop)
+      end
+
+      stop =
+        receive do
+          {:stop, %{type: :click}} ->
+            true
+
+          _ ->
+            false
+        after
+          0 -> false
+        end
+
+      if stop do
+        :halt
+      else
+        {:cont, "Iteration: #{i + 1}", tick(env)}
+      end
+    end)
   end
 
   ############################################################
