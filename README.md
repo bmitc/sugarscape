@@ -1,3 +1,5 @@
+[![build and test](https://github.com/bmitc/sugarscape/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/bmitc/sugarscape/actions/workflows/build-and-test.yml)
+
 # Sugarscape
 
 [In progress and not complete]
