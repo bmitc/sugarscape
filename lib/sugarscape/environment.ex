@@ -139,6 +139,10 @@ defmodule Sugarscape.Environment do
     Enum.concat(horizontal, vertical)
   end
 
+  @doc """
+  Gets the resource at the given coordinate. It is possible that the environment doesn't
+  contain a resource at the coordinate, in which case `nil` is returned.
+  """
   @spec get_resource_at(__MODULE__.t(), Coordinate.t()) :: Resource.t() | nil
   def get_resource_at(%__MODULE__{} = environment, location) do
     {resource, _agent} = Grid.index(environment.grid, location)

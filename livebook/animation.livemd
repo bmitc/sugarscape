@@ -20,9 +20,5 @@ stop = Kino.Control.button("Stop animations")
 
 ```elixir
 Environment.new()
-|> Environment.animate(
-  iterations: 1000,
-  interval_ms: 100,
-  stop: stop
-)
+|> Environment.animate(title: "", iterations: 1000, interval_ms: 100, stop: stop)
 ```
